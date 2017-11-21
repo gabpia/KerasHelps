@@ -96,7 +96,7 @@ def unet_2d_5layers(input_size, learning_rate=1e-5, lr_decay_rate=0., batch_norm
     opt = Adam(lr=learning_rate, decay=lr_decay_rate)
 
     # COMPILE
-    model.compile(optimizer=opt, loss=dice_coef_loss, metrics=[dice_coef, jaccard_coef, "accuracy"])
+    model.compile(optimizer=opt, loss=dice_coef_loss, metrics=[dice_coef, jaccard_coef, 'accuracy', 'binary_crossentropy'])
 
     return model
 
@@ -204,12 +204,12 @@ def unet_2d_6layers(input_size, learning_rate=1e-5, lr_decay_rate=0., batch_norm
     opt = Adam(lr=learning_rate, decay=lr_decay_rate)
 
     # COMPILE
-    model.compile(optimizer=opt, loss=dice_coef_loss, metrics=[dice_coef, jaccard_coef, "accuracy"])
+    model.compile(optimizer=opt, loss=dice_coef_loss, metrics=[dice_coef, jaccard_coef, 'accuracy', 'binary_crossentropy'])
 
     return model
 
 
-def autoencoder_2d(input_size, depth):
+def autoencoder_2d(input_size, depth, learning_rate=0.001, lr_decay_rate=0., batch_norm=False):
     encoding_layers = []
     decoding_layers = []
 
@@ -218,14 +218,23 @@ def autoencoder_2d(input_size, depth):
     for i in range(depth):
         encoding_layers.append(Conv2D(8, (3, 3), activation='relu', padding='same', name='en_conv_%d' % i)(encoding_layers[-1]))
         encoding_layers.append(MaxPooling2D((2, 2), padding='same', name='en_pool_%d' % i)(encoding_layers[-1]))
+        if batch_norm:
+            encoding_layers.append(BatchNormalization()(encoding_layers[-1]))
 
     # DECODING
     decoding_layers.append(encoding_layers[-1])
     for i in range(depth):
         decoding_layers.append(Conv2D(8, (3, 3), activation='relu', padding='same', name='de_conv_%d' % i)(decoding_layers[-1]))
         decoding_layers.append(UpSampling2D((2, 2), name='de_upsample_%d' % i)(decoding_layers[-1]))
+        if batch_norm:
+            decoding_layers.append(BatchNormalization()(decoding_layers[-1]))
     decoding_layers.append(Conv2D(1, (3, 3), activation='sigmoid', padding='same', name='output')(decoding_layers[-1]))
 
+    # MODEL
     model = Model(encoding_layers[0], decoding_layers[-1])
-    model.compile(optimizer='Adam', loss='binary_crossentropy')
+
+    # OPTIMIZER
+    opt = Adam(lr=learning_rate, decay=lr_decay_rate)
+
+    model.compile(optimizer=opt, loss=dice_coef_loss, metrics=[dice_coef, jaccard_coef, 'accuracy', 'binary_crossentropy'])
     return model
